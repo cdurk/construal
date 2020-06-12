@@ -1,0 +1,354 @@
+---
+title: "models_figs_PNAS"
+author: "Celia Durkin"
+date: "5/3/2020"
+output: pdf_document
+fig_width: 10 
+fig_height: 4 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(plyr)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(tidyr)
+library(readr)
+library(stringr)
+library(scales)
+library(stringi)
+library(lme4)
+library(sjPlot)
+library(gridExtra)
+library(grid)
+library(cowplot)
+```
+#mturkTemporal
+```{r data/model}
+#read data
+temporaldata<-data.table(read.csv("~/Downloads/celia-exp/mturk_temporal.csv"))
+
+# make contingency table
+mturktemporal <- table(temporaldata$Category, temporaldata$TemporalDistance)
+
+#chi-squared test for independence
+chisq.test(mturktemporal)
+summary(mturktemporal)
+```
+#configure data for figure
+```{r Figure 2}
+temporaldata$Category<-factor(temporaldata$Category, levels=c("Concrete", "Indeterminate", "Abstract"))
+
+temporaldata %>%
+  mutate(painting=paste(Painter, Painting, sep=""),
+         distance_numeric=ifelse(TemporalDistance== "tomorrow", 0, 1))->temporaldata
+
+temporaldata$Painting<-as.character(temporaldata$Painting)
+temporaldata$Painter<-as.character(temporaldata$Painter)
+temporaldata$set<-substr(temporaldata$Painting, nchar(temporaldata$Painting)-1, nchar(temporaldata$Painting)-1)
+temporaldata$Painter_set<-paste(temporaldata$Painter, temporaldata$set, sep="")
+temporaldata$Painter_set_num<-revalue(temporaldata$Painter_set, c("CloseA" = "Set 1",
+                                      "MondrianA" = "Set 2",
+                                      "MondrianB" = "Set 3",
+                                      "RothkoA" = "Set 4",
+                                      "RothkoB" ="Set 5",
+                                      "StillA" = "Set 6",
+                                      "StillB" = "Set 7"))
+
+
+temporaldata %>%
+  group_by(Painter, Category, Painting, Painter_set_num) %>%
+  summarize(mean_distance=mean(distance_numeric, na.rm = T),
+            prop_distance=sum(distance_numeric)/n(),
+            se_distance=sqrt((prop_distance*(1-prop_distance))/n()))->mean_distance_mturk_temp 
+
+temporaldata %>%
+  group_by(Category) %>%
+  summarize(mean_distance=mean(distance_numeric, na.rm = T),
+            prop_distance=sum(distance_numeric)/n(),
+            se_distance=sqrt((prop_distance*(1-prop_distance))/n()))->mean_distance_mturk_temp1 
+
+
+```
+#Figure for mturkTemporal
+```{r Figure 2}
+cbPalette <- c("#40b0a6","#888888","#e66100")
+```
+```{r fig 2a}
+
+fig2a<-ggplot(mean_distance_mturk_temp1, aes(Category, mean_distance, fill=Category))+geom_bar(stat="identity")+
+  geom_errorbar(data=mean_distance_mturk_temp1, aes(x=Category, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=.2))+
+  theme_bw() +
+  theme(legend.position="",
+        plot.margin = unit(c(0,3,0,0), "lines"),
+        plot.title = element_text(size=13, hjust=.5),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=12, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        axis.title.y = element_text( size = 12, face = "bold" ))+
+  labs(title = "'Does this painting hang in a gallery opening\n tomorrow or in a year?'", x = "Painting Category", y = "Proportion of 'in a year' Responses", fill="")+
+  ylim(0,.9)+
+  scale_fill_manual(values=cbPalette)
+```
+
+```{r fig2b}
+fig2b<-ggplot(mean_distance_mturk_temp, aes(Painting, mean_distance, fill=Category))+geom_bar(stat="identity")+
+  geom_errorbar(data=mean_distance_mturk_temp, aes(x=Painting, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=.2))+
+  facet_wrap(~Painter_set_num,scales="free_x", nrow = 1 )+
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "white", fill= "white"),
+        legend.position="bottom",
+        #legend.text=element_text(vjust=2),
+        legend.box.margin = margin(-10,-2,-2,-2),
+        plot.margin = margin(-10,0,0,10),
+        legend.margin = margin(0,0,0,0),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title = element_text( size = 12, face = "bold" ),
+        axis.title.y = element_text( size = 12, face = "bold" ),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        strip.text.y = element_blank(),
+        strip.text=element_text(size=14, vjust = -1))+ 
+  labs(title = "", x = "Painting", y = "Proportion of 'in a year' Responses", fill="")+
+  ylim(0,.9)+scale_fill_manual(values=cbPalette)
+```
+
+```{r fig.width=12, fig.height=4.2}
+fig2<-plot_grid(fig2a,fig2b, labels = c('A', 'B'), rel_widths = c(1.2, 2), ncol=2)
+fig2
+```
+
+
+#mturkSpatial
+```{r data/model}
+#read data
+spatialdata<-read_csv("~/Downloads/celia-exp/mturk_spatial.csv")
+
+# make contingency table
+spatialtable<-table(spatialdata$Category, spatialdata$SpatialDistance)
+
+#chi-squared test for independence
+chisq.test(spatialtable)
+summary(spatialtable)
+```
+#configure data for figure
+```{r}
+spatialdata$Category<-factor(spatialdata$Category, levels=c("Concrete", "Indeterminate", "Abstract"))
+
+spatialdata %>%
+  mutate(painting=paste(Painter, Painting, sep=""),
+         distance_numeric=ifelse(SpatialDistance== "around the corner", 0, 1))->spatialdata
+
+spatialdata$Painting<-as.character(spatialdata$Painting)
+spatialdata$Painter<-as.character(spatialdata$Painter)
+spatialdata$set<-substr(spatialdata$Painting, nchar(spatialdata$Painting)-1, nchar(spatialdata$Painting)-1)
+
+spatialdata$Painter_set<-paste(spatialdata$Painter, spatialdata$set, sep="")
+spatialdata$Painter_set_num<-revalue(spatialdata$Painter_set, c("CloseA" = "Set 1",
+                                      "MondrianA" = "Set 2",
+                                      "MondrianB" = "Set 3",
+                                      "RothkoA" = "Set 4",
+                                      "RothkoB" ="Set 5",
+                                      "StillA" = "Set 6",
+                                      "StillB" = "Set 7"))
+
+spatialdata %>%
+  group_by(Painter, Category, Painting, Painter_set_num) %>%
+  summarize(mean_distance=mean(distance_numeric, na.rm = T),
+            prop_distance=sum(distance_numeric)/n(),
+            se_distance=sqrt((prop_distance*(1-prop_distance))/n()))->mean_distance_mturk_spat 
+
+spatialdata %>%
+  group_by(Category) %>%
+  summarize(mean_distance=mean(distance_numeric, na.rm = T),
+            prop_distance=sum(distance_numeric)/n(),
+            se_distance=sqrt((prop_distance*(1-prop_distance))/n()))->mean_distance_mturk_spat1 
+```
+#Figure for Mturk Spatial
+```{r Figure 3}
+cbPalette <- c("#40b0a6","#888888","#e66100")
+```
+```{r fig 3a}
+fig3a<-ggplot(mean_distance_mturk_spat1, aes(Category, mean_distance, fill=Category))+geom_bar(stat="identity")+
+  geom_errorbar(data=mean_distance_mturk_spat1, aes(x=Category, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=.2))+
+  theme_bw() +
+  theme(legend.position="",
+        plot.margin = unit(c(0,3,0,0), "lines"),
+        plot.title = element_text(size=13, hjust=.5),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=12, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        axis.title.y = element_text( size = 12, face = "bold" ))+
+  labs(title = "'Does this painting hang in a gallery opening\n around the corner or in another state?'", x = "Painting Category", y = "Proportion of 'in another state' Responses", fill="")+
+  ylim(0,.9)+
+  scale_fill_manual(values=cbPalette)
+```
+
+```{r fig3b}
+fig3b<-ggplot(mean_distance_mturk_spat, aes(Painting, mean_distance, fill=Category))+geom_bar(stat="identity")+
+  geom_errorbar(data=mean_distance_mturk_spat, aes(x=Painting, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=.2))+
+  facet_wrap(~Painter_set_num,scales="free_x", nrow = 1 )+
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "white", fill= "white"),
+        legend.position="bottom",
+        #legend.text=element_text(vjust=2),
+        legend.box.margin = margin(-10,-2,-2,-2),
+        plot.margin = margin(-10,0,0,10),
+        legend.margin = margin(0,0,0,0),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title = element_text( size = 13, face = "bold" ),
+        axis.title.y = element_text( size = 12, face = "bold" ),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        strip.text.y = element_blank(),
+        strip.text=element_text(size=14, vjust = -1))+ 
+  labs(title = "", x = "Painting", y = "Proportion of 'in another state' Responses", fill="")+
+  ylim(0,.9)+scale_fill_manual(values=cbPalette)
+```
+
+```{r fig.width=12, fig.height=4.2}
+fig3<-plot_grid(fig3a,fig3b, labels = c('A', 'B'), rel_widths = c(1.2, 2), ncol=2)
+fig3
+```
+
+
+```{r}
+observations<-read_csv("~/Desktop/temporal_construal_lab.csv")
+```
+
+
+```{r}
+observations$painting_category_num<-as.character(observations$painting_category_num)
+observations$Painter_set_num<-revalue(observations$Painter_set, c("CloseA" = "Set 1",
+                                      "MondrianA" = "Set 2",
+                                      "MondrianB" = "Set 3",
+                                      "RothkoA" = "Set 4",
+                                      "RothkoB" ="Set 5",
+                                      "StillA" = "Set 6",
+                                      "StillB" = "Set 7"))
+
+
+observations %>%
+ group_by(Painting, painting_category_num, painter, Painter_set_num) %>%
+  dplyr::summarise(mean_distance=mean(distance_value_numeric, na.rm = T),
+            prop_distance=sum(distance_value_numeric)/n(),
+            se_distance=sqrt((prop_distance*(1-prop_distance))/n()),
+            mean_abstract=mean(abstraction_value),
+            se_abstract=sd(abstraction_value)) -> mean_distance
+
+observations %>%
+ group_by(painting_category_num) %>%
+  dplyr::summarise(mean_distance=mean(distance_value_numeric, na.rm = T),
+            prop_distance=sum(distance_value_numeric)/n(),
+            se_distance=sqrt((prop_distance*(1-prop_distance))/n()),
+            mean_abstract=mean(abstraction_value),
+            se_abstract=sd(abstraction_value)) -> mean_distance1
+```
+
+```{r}
+cbPalette <- c("#40b0a6","#888888","#e66100")
+fig4a<-ggplot(mean_distance1, aes(painting_category_num, mean_distance, fill=painting_category_num))+geom_bar(stat="identity")+
+  geom_errorbar(data=mean_distance1, aes(x=painting_category_num, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=.2))+
+  theme_bw() +
+  theme(legend.position="",
+        plot.margin = unit(c(0,3,0,0), "lines"),
+        plot.title = element_text(size=13, hjust=.5),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=12, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        axis.title.y = element_text( size = 12, face = "bold" ))+
+  labs(title = "'Does this painting hang in a gallery opening\n tomorrow or in a year?'", x = "Painting Category", y = "Proportion of 'in a year' Responses", fill="")+
+  ylim(0,.9)+
+  scale_fill_manual(values=cbPalette)+
+  scale_x_discrete(labels=c("Concrete","Indeterminate","Abstract"))
+```
+
+```{r}
+cbPalette <- c("#40b0a6","#888888","#e66100")
+fig4b<-ggplot(mean_distance, aes(Painting, mean_distance, fill=painting_category_num))+geom_bar(stat="identity")+
+  geom_errorbar(data=mean_distance, aes(x=Painting, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=.2))+
+  facet_wrap(~Painter_set_num,scales="free_x", nrow = 1 )+
+  theme_bw() +
+  theme(strip.background = element_rect(colour = "white", fill= "white"),
+        legend.position="bottom",
+        legend.box.margin = margin(-10,-2,-2,-2),
+        plot.margin = margin(-10,0,0,10),
+        legend.margin = margin(0,0,0,0),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title = element_text( size = 13, face = "bold" ),
+        axis.title.y = element_text( size = 12, face = "bold" ),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        strip.text.y = element_blank(),
+        strip.text=element_text(size=14, vjust = -1))+ 
+  labs(title = "", x = "Painting", y = "Proportion of 'in a year' Responses", fill="")+
+  ylim(0,.9)+
+  scale_fill_manual(values=cbPalette, labels=c("Concrete","Indeterminate","Abstract"))
+```
+
+```{r fig.width=12, fig.height=4.2}
+fig4<-plot_grid(fig4a,fig4b, labels = c('A', 'B'), rel_widths = c(1.2, 2), ncol=2)
+fig4
+```
+
+```{r fig.width=4.5, fig.height=4.2}
+
+cbPalette <- c("#40b0a6","#000000","#e66100")
+
+ggplot(mean_distance, aes(x= mean_abstract, y=mean_distance))+
+  geom_point(aes(color=painting_category_num))+
+  geom_errorbar(data=mean_distance, aes(x=mean_abstract, ymin=mean_distance-se_distance, ymax=mean_distance+se_distance, width=0, color=painting_category_num))+
+  stat_smooth(method="lm", alpha=.3)+
+  theme_bw() +
+  theme(legend.position="bottom",
+        plot.title = element_text(size=13, hjust=.5),
+        plot.margin = margin(0,0,0,0),
+        legend.box.margin = margin(-10,-2,-2,-25),
+        legend.text=element_text(margin = margin(0,0,0,-3)),
+        legend.margin = margin(0,0,0,0),
+        legend.title = element_blank(),
+        legend.key.width = unit(1.75, "line"),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size=15, face = "bold"),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=12, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title.x = element_text( size = 14, face = "bold"),
+        axis.title.y = element_text( size = 12, face = "bold" ))+
+  labs(title = "Experiment 3: Temporal Distance (n=47)",
+       x = "Individual Abstraction Rating", 
+       y = "Proportion of 'in a year' Responses", 
+       fill="")+scale_color_manual(values=cbPalette, labels=c("Concrete","Indeterminate","Abstract"))+
+  ylim(0,.8)
+
+```
+
