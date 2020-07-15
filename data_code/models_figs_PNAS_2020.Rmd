@@ -135,7 +135,7 @@ fig2
 #mturkSpatial
 ```{r data/model}
 #read data
-spatialdata<-read_csv("~/Downloads/celia-exp/mturk_spatial.csv")
+spatialdata<-read_csv("~/Desktop/data_code/spatial_construal_mturk.csv")
 
 # make contingency table
 spatialtable<-table(spatialdata$Category, spatialdata$SpatialDistance)
@@ -255,10 +255,8 @@ mod4<-glmer(distance_value_numeric~abstraction_value + liking_value + viewing_va
 mod5<-glmer(distance_value_numeric~abstraction_value * liking_value + viewing_value+experience_rating+(1|participant),
           data=subset (observations, experience_rating!="artist"&experience_rating!="art historian"), family=binomial, nAGQ=0)
 
-tab_model(mod3, mod4)
-
 tab_model(mod3, mod4,
-          pred.labels = c("Intercept", "Category (indeterminate)", "Category (abstract)", "Liking Rating (1-7)", "Hours spent with art per week (1-4)","Art Experience (enthusiast)", "Abstraction Rating"),dv.labels = c("P (in 1 y)", "P (in 1 y)"), show.re.var =FALSE, show.est=TRUE, show.reflvl=TRUE, transform = NULL, p.style = "both", string.est = "b",string.ci = "95% CI", string.p = "P value", show.icc = FALSE, file = "~/Desktop/PNAS_tables.docx")
+          pred.labels = c("Intercept", "Category (indeterminate)", "Category (abstract)", "Liking Rating (1-7)", "Hours spent with art per week (1-4)","Art Experience (enthusiast)", "Abstraction Rating"),dv.labels = c("P (in 1 y)", "P (in 1 y)"), show.re.var =FALSE, show.est=TRUE, show.reflvl=TRUE, transform = NULL, p.style = "numeric", string.est = "b",string.ci = "95% CI", string.p = "P value", show.icc = FALSE)
 
 #file = "~/Desktop/PNAS_tables.docx"
 #Table for interaction model
