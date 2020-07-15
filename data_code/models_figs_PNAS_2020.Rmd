@@ -30,7 +30,7 @@ library(cowplot)
 #mturkTemporal
 ```{r data/model}
 #read data
-temporaldata<-data.table(read.csv("~/Downloads/celia-exp/mturk_temporal.csv"))
+temporaldata<-data.table(read.csv("~/Desktop/data_code/temporal_construal_mturk.csv"))
 
 # make contingency table
 mturktemporal <- table(temporaldata$Category, temporaldata$TemporalDistance)
@@ -78,6 +78,7 @@ temporaldata %>%
 ```{r Figure 2}
 cbPalette <- c("#40b0a6","#888888","#e66100")
 ```
+
 ```{r fig 2a}
 
 fig2a<-ggplot(mean_distance_mturk_temp1, aes(Category, mean_distance, fill=Category))+geom_bar(stat="identity")+
@@ -231,12 +232,40 @@ fig3<-plot_grid(fig3a,fig3b, labels = c('A', 'B'), rel_widths = c(1.2, 2), ncol=
 fig3
 ```
 
-
 ```{r}
-observations<-read_csv("~/Desktop/temporal_construal_lab.csv")
+observations<-read_csv("~/Desktop/data_code/temporal_construal_lab.csv")
+
+#subject b_52 should be excluded, as their data are incomplete
+observations<-subset(observations, participant!="b_52")
+
+observations$painting_category<-factor(observations$painting_category, levels=c("concrete", "indeterminate", "abstract"))
+
+observations$experience_rating<-factor(observations$experience_rating, levels=c("novice", "enthusiast"))
+
 ```
+#models for Experiment 3
+```{r}
+mod3<-glmer(distance_value_numeric~painting_category + liking_value + viewing_value+experience_rating+(1|participant),
+          data=subset (observations, experience_rating!="artist"&experience_rating!="art historian"), family=binomial, nAGQ=0)
 
+mod4<-glmer(distance_value_numeric~abstraction_value + liking_value + viewing_value+experience_rating+(1|participant),
+          data=subset (observations, experience_rating!="artist"&experience_rating!="art historian"), family=binomial, nAGQ=0)
 
+#interaction model
+mod5<-glmer(distance_value_numeric~abstraction_value * liking_value + viewing_value+experience_rating+(1|participant),
+          data=subset (observations, experience_rating!="artist"&experience_rating!="art historian"), family=binomial, nAGQ=0)
+
+tab_model(mod3, mod4)
+
+tab_model(mod3, mod4,
+          pred.labels = c("Intercept", "Category (indeterminate)", "Category (abstract)", "Liking Rating (1-7)", "Hours spent with art per week (1-4)","Art Experience (enthusiast)", "Abstraction Rating"),dv.labels = c("P (in 1 y)", "P (in 1 y)"), show.re.var =FALSE, show.est=TRUE, show.reflvl=TRUE, transform = NULL, p.style = "both", string.est = "b",string.ci = "95% CI", string.p = "P value", show.icc = FALSE, file = "~/Desktop/PNAS_tables.docx")
+
+#file = "~/Desktop/PNAS_tables.docx"
+#Table for interaction model
+tab_model(mod5,
+          pred.labels = c("Intercept", "Liking Rating (1-7)","Hours spent with art per week (1-4)", "Art Experience (enthusiast)", "Abstraction Rating","Liking X Abstraction"),dv.labels = c("P(In one year)", "P(In one year)"), show.re.var =FALSE, show.est=TRUE, show.reflvl=TRUE, transform = NULL)
+```
+#create figure
 ```{r}
 observations$painting_category_num<-as.character(observations$painting_category_num)
 observations$Painter_set_num<-revalue(observations$Painter_set, c("CloseA" = "Set 1",
